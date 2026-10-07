@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>QuotaNode | Monitoring IoT</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+  <script src="{{ url_for('static', filename='js/script.js') }}" defer></script>
+</head>
+<body>
+  <header class="border-bottom bg-white">
+    <div class="container py-3 d-flex flex-wrap justify-content-between align-items-center gap-3">
+      <a class="brand text-decoration-none" href="{{ url_for('index') }}">Quota<span>Node</span></a>
+      <span class="badge rounded-pill text-bg-light border">Prototype · Data Dummy</span>
+    </div>
+  </header>
+
+  <main class="container py-4 py-md-5">
+    <section class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4" aria-labelledby="page-title">
+      <div>
+        <p class="eyebrow mb-2">MONITORING IoT / SIM7000</p>
+        <h1 id="page-title" class="h3 fw-bold">Dashboard Monitoring</h1>
+        <p class="text-secondary mb-0">Pantau jaringan dan ketersediaan paket data node IoT.</p>
+      </div>
+      <button id="refresh-button" class="btn btn-primary px-4" type="button" disabled>Refresh Data</button>
+    </section>
+
+    <div class="simulation-note mb-4">
+      <strong>Dummy backend Flask.</strong> Data contoh dari backend, belum terhubung ke SIM7000.
+      Refresh mengambil data dummy yang sama; waktu pembacaan mengikuti jam browser.
+    </div>
+    <noscript><p class="alert alert-warning">Aktifkan JavaScript untuk menampilkan data dummy dan memakai tombol Refresh Data.</p></noscript>
+
+    <section class="card mb-4" aria-labelledby="node-heading">
+      <div class="card-body p-4 d-flex flex-wrap justify-content-between align-items-center gap-4">
+        <div>
+          <h2 id="node-heading" class="metric-label">Nama / ID Node IoT</h2>
+          <p id="node-id" class="h4 fw-bold mb-0">—</p>
+        </div>
+        <div>
+          <p class="metric-label">Status perangkat</p>
+          <span id="device-status" class="badge rounded-pill text-bg-secondary">—</span>
+        </div>
+        <div>
+          <p class="metric-label">Update terakhir · waktu lokal</p>
+          <p id="last-update" class="fw-semibold mb-0">—</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="row g-3 mb-4" aria-label="Ringkasan paket dan jaringan">
+      <div class="col-12 col-sm-6 col-lg-3">
+        <article class="card h-100"><div class="card-body p-4">
+          <h2 class="metric-label">Provider SIM Card</h2>
+          <p id="provider" class="metric-value">—</p>
+          <p class="text-secondary small mb-0">Operator kartu SIM node.</p>
+        </div></article>
+      </div>
+      <div class="col-12 col-sm-6 col-lg-3">
+        <article class="card h-100 quota-card"><div class="card-body p-4">
+          <h2 class="metric-label">Sisa paket data</h2>
+          <p id="quota" class="metric-value text-primary">—</p>
+          <p><span id="quota-status" class="badge rounded-pill text-bg-secondary">—</span></p>
+          <p class="text-secondary small mb-0">Sisa kuota dummy dari backend Flask.</p>
+        </div></article>
+      </div>
+      <div class="col-12 col-sm-6 col-lg-3">
+        <article class="card h-100"><div class="card-body p-4">
+          <h2 class="metric-label">Kekuatan sinyal</h2>
+          <p id="signal" class="metric-value">—</p>
+          <div id="signal-bars" class="signal-bars mb-2" aria-hidden="true">
+            <span></span><span></span><span></span><span></span>
+          </div>
+          <p id="signal-label" class="text-secondary small mb-0">Belum tersedia</p>
+        </div></article>
+      </div>
+      <div class="col-12 col-sm-6 col-lg-3">
+        <article class="card h-100"><div class="card-body p-4">
+          <h2 class="metric-label">Masa aktif paket</h2>
+          <p id="expiry" class="expiry-value">—</p>
+          <p class="text-secondary small mb-0">Tanggal berakhir paket contoh.</p>
+        </div></article>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="history-heading">
+      <div class="card-body p-4 border-bottom d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <h2 id="history-heading" class="h5 fw-bold mb-0">Riwayat Monitoring</h2>
+        <span class="text-secondary small">Maksimal 10 pembacaan terbaru</span>
+      </div>
+      <div class="table-responsive" tabindex="0" role="region" aria-label="Tabel riwayat monitoring, geser untuk melihat semua kolom">
+        <table class="table table-striped table-hover align-middle mb-0">
+          <caption class="px-4">Riwayat pembacaan dummy backend Flask tersimpan sementara selama halaman terbuka.</caption>
+          <thead><tr>
+            <th scope="col">Waktu lokal</th>
+            <th scope="col">Node ID</th>
+            <th scope="col">Status</th>
+            <th scope="col">Provider</th>
+            <th scope="col">Sinyal</th>
+            <th scope="col">Sisa kuota</th>
+            <th scope="col">Masa aktif</th>
+          </tr></thead>
+          <tbody id="history-body"></tbody>
+        </table>
+      </div>
+    </section>
+    <p id="refresh-message" class="small text-secondary mt-3" role="status" aria-live="polite" aria-atomic="true">Menyiapkan data dummy.</p>
+  </main>
+  <footer class="container pb-4 small text-secondary">QuotaNode · Prototype monitoring paket data IoT</footer>
+</body>
+</html>

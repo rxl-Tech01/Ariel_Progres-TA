@@ -1,0 +1,122 @@
+:root {
+  --page-bg: #f4f7fb;
+  --ink: #1c2c45;
+}
+
+body {
+  background: var(--page-bg);
+  color: var(--ink);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.container {
+  max-width: 1140px;
+}
+
+.brand {
+  color: var(--ink);
+  font-size: 1.4rem;
+  font-weight: 800;
+  letter-spacing: -0.05em;
+}
+
+.brand span {
+  color: #0d6efd;
+}
+
+.eyebrow {
+  color: #52627a;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.simulation-note {
+  background: #eaf2ff;
+  border-left: 3px solid #0d6efd;
+  border-radius: 0.5rem;
+  color: #264a7a;
+  padding: 1rem;
+  font-size: 0.875rem;
+}
+
+.card {
+  border: 1px solid #e2e8f0;
+  border-radius: 1rem;
+  box-shadow: 0 4px 16px rgb(28 44 69 / 3%);
+  overflow: hidden;
+}
+
+.metric-label {
+  color: #59677b;
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin-bottom: 0.75rem;
+}
+
+.metric-value {
+  font-size: clamp(1.8rem, 4vw, 2.2rem);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  margin-bottom: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.expiry-value {
+  font-size: 1.35rem;
+  font-weight: 700;
+  margin-block: 1rem;
+}
+
+.signal-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 28px;
+}
+
+.signal-bars span {
+  width: 10px;
+  height: 25%;
+  background: #dee2e6;
+  border: 1px solid #59677b;
+  border-radius: 2px;
+}
+
+.signal-bars span:nth-child(2) { height: 50%; }
+.signal-bars span:nth-child(3) { height: 75%; }
+.signal-bars span:nth-child(4) { height: 100%; }
+.signal-bars .active { background: #146c43; }
+
+.quota-card {
+  border-top: 3px solid #0d6efd;
+}
+
+.table {
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+
+.table > :not(caption) > * > * {
+  padding: 1rem 1.25rem;
+  border-color: #edf0f5;
+}
+
+.table thead th {
+  background: #f8fafc;
+  color: #59677b;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+#refresh-message.is-error {
+  color: #842029 !important;
+  background: #f8d7da;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+}
+
+.table-responsive:focus-visible {
+  outline: 3px solid #0d6efd;
+  outline-offset: -3px;
+}
