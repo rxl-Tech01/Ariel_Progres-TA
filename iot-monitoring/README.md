@@ -1,198 +1,146 @@
 # QuotaNode — Dashboard Monitoring IoT
 
-Prototype website untuk Tugas Akhir:
+Prototype Tugas Akhir monitoring paket data SIM7000. Phase 1 menyediakan Flask, SQLite, API satu node, dan dashboard tanpa data dummy. Integrasi AT Command/USSD masih tanggung jawab pengirim; keberhasilan transport heartbeat bukan keberhasilan cek kuota.
 
-**Rancang Bangun Sistem Monitoring Ketersediaan Paket Data pada Node IoT Menggunakan Modul SIM7000 Berbasis AT Command dan USSD.**
+## Teknologi dan struktur
 
-Tahap saat ini mempelajari komunikasi frontend dengan backend melalui HTTP API. Flask menampilkan dashboard dan menyediakan data dummy. Belum ada database, pembacaan AT Command/USSD, atau koneksi SIM7000.
+Python 3.9+, Flask 3.1 (`requirements.txt`), SQLite dan unittest bawaan Python. Ruff sebagai dependensi pengembangan (`requirements-dev.txt`), memakai aturan lint default E4/E7/E9/F di `ruff.toml` agar tidak mewarisi konfigurasi luar proyek. HTML/CSS/JavaScript memakai Bootstrap 5 melalui CDN; tampilan lengkap memerlukan internet.
 
-## Teknologi
-
-- HTML, CSS, JavaScript, dan Bootstrap 5 untuk dashboard.
-- Python 3.9 atau lebih baru dan Flask 3.1 untuk backend.
-- `unittest` bawaan Python untuk pengujian backend.
-
-Tidak memerlukan Node.js atau npm untuk menjalankan aplikasi. Bootstrap dimuat melalui CDN, sehingga tampilan lengkap membutuhkan koneksi internet.
-
-## Struktur proyek
-
-```text
-iot-monitoring/
-├── app.py
-├── requirements.txt
-├── test_app.py
-├── README.md
-├── assets/
-├── templates/
-│   └── index.html
-└── static/
-    ├── css/
-    │   └── style.css
-    └── js/
-        └── script.js
-```
-
-| File / folder | Fungsi |
-| --- | --- |
-| `app.py` | Membuat aplikasi Flask, menampilkan halaman utama, dan menyediakan endpoint data node. |
-| `requirements.txt` | Daftar dependensi Python: `Flask>=3.1,<4`. |
-| `test_app.py` | Menguji halaman utama, respons API, dan akses file CSS/JavaScript. |
-| `templates/index.html` | Struktur dashboard yang dirender oleh Flask. |
-| `static/css/style.css` | Penyesuaian tampilan dashboard dan pesan error. |
-| `static/js/script.js` | Pengambilan API, validasi data, render dashboard, dan riwayat sementara. |
-| `assets/` | Folder cadangan dari prototype awal; belum digunakan. File yang ingin dilayani Flask sebaiknya ditempatkan di `static/`. |
+- `app.py`: API, validasi, autentikasi, penyimpanan, migrasi.
+- `test_app.py`: pengujian dengan database sementara, bukan database operasional.
+- `templates/index.html`, `static/js/script.js`, `static/css/style.css`: dashboard.
+- `monitoring.sqlite3`: database lokal yang dibuat pada POST valid pertama.
 
 ## Instalasi dan menjalankan
 
-Contoh berikut menggunakan PowerShell pada Windows.
+PowerShell, dari `D:\Ariel 24_TA\QuotaNode_TA\iot-monitoring`:
 
-1. Buka terminal pada folder proyek:
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+$env:NODE_ID = 'NODE-001'
+$env:NODE_API_TOKEN = .\.venv\Scripts\python.exe -c "import secrets; print(secrets.token_urlsafe(32))"
+.\.venv\Scripts\python.exe app.py
+```
 
-   ```powershell
-   cd "D:\Ariel 24_TA\QuotaNode_TA\iot-monitoring"
-   ```
+`NODE_ID` opsional, default `NODE-001`; gunakan ID tidak kosong. Token di atas dibuat lokal, bukan token contoh tetap. Simpan token secara aman untuk pengirim; jangan taruh di HTML, JavaScript, URL, log, atau repository. Environment berlaku pada proses yang diluncurkan dari terminal tersebut. Untuk restart dengan token sama, gunakan secret tersimpan, bukan membuat ulang tanpa memperbarui pengirim.
 
-   Sesuaikan path jika lokasi proyek berbeda.
+Server pengembangan hanya mendengarkan `127.0.0.1:5000`, debug nonaktif. Buka **http://127.0.0.1:5000/**, bukan file HTML langsung. Hentikan dengan `Ctrl+C`. Jika `python` tidak tersedia gunakan `py` saat membuat venv. Deployment bukan cakupan phase 1; jangan mengirim Bearer token melalui HTTP jaringan tanpa TLS.
 
-2. Buat virtual environment agar dependensi terpisah dari instalasi Python global:
+## Kontrak API phase 1
 
-   ```powershell
-   python -m venv .venv
-   ```
+### `GET /` dan `GET /api/node/latest`
 
-3. Instal dependensi:
+Publik, tanpa token, hanya membaca. GET tidak membuat database, memigrasi skema, atau menambah pembacaan. API memakai `Cache-Control: no-store`. Database kosong/tidak ada mengembalikan HTTP 200 dengan `hasData: false`, `status: "Unknown"`, field pengukuran/waktu `null`, `quota_check_status: "unknown"`, serta `nodeId` konfigurasi dan `server_time` UTC. Database gagal dibaca menghasilkan 503, bukan data dummy.
 
-   ```powershell
-   .\.venv\Scripts\python.exe -m pip install -r requirements.txt
-   ```
-
-   Perintah ini sudah menginstal Flask. Alternatif instalasi Flask secara langsung:
-
-   ```powershell
-   .\.venv\Scripts\python.exe -m pip install "Flask>=3.1,<4"
-   ```
-
-4. Jalankan server:
-
-   ```powershell
-   .\.venv\Scripts\python.exe app.py
-   ```
-
-5. Buka dashboard melalui **http://127.0.0.1:5000/**.
-
-   Respons JSON dapat dilihat di **http://127.0.0.1:5000/api/node/latest**.
-
-Hentikan server dengan `Ctrl+C` pada terminal tempat server berjalan. Untuk menjalankan kembali, cukup ulangi langkah 4; instalasi tidak perlu diulang setiap kali.
-
-Jika perintah `python` tidak tersedia tetapi Python Launcher terpasang, gunakan `py -m venv .venv` pada langkah 2. Pemanggilan interpreter `.venv` secara langsung tidak membutuhkan aktivasi PowerShell.
-
-Buka website melalui Flask, bukan dengan membuka `templates/index.html` melalui `file:///`. Aplikasi menggunakan server pengembangan lokal di `127.0.0.1` dengan debug nonaktif; bukan konfigurasi deployment produksi.
-
-## Endpoint API
-
-### `GET /`
-
-Menampilkan `templates/index.html`. Flask menyediakan CSS dan JavaScript melalui direktori `static/`, dengan alamat yang dibentuk oleh `url_for()` pada template.
-
-### `GET /api/node/latest`
-
-Mengembalikan respons JSON dummy berikut:
+Contoh bentuk respons setelah cek sukses:
 
 ```json
 {
   "nodeId": "NODE-001",
+  "hasData": true,
   "status": "Online",
   "provider": "by.U",
-  "quota": 8.4,
+  "quota": 0,
   "signal": -75,
-  "expiredDate": "24 Oktober 2026"
+  "expiredDate": null,
+  "received_at": "2026-10-09T00:00:00.000000Z",
+  "heartbeat_at": "2026-10-09T00:00:00.000000Z",
+  "quota_checked_at": "2026-10-09T00:00:00.000000Z",
+  "quota_check_status": "success",
+  "server_time": "2026-10-09T00:00:30.000000Z"
 }
 ```
 
-| Field | Makna |
-| --- | --- |
-| `nodeId` | Nama atau ID node. |
-| `status` | `Online` atau `Offline`. |
-| `provider` | Nama operator SIM. |
-| `quota` | Sisa kuota berupa angka dalam GB, tidak negatif. |
-| `signal` | Nilai sinyal berupa angka dalam dBm; frontend juga mendukung `null` jika tidak tersedia. |
-| `expiredDate` | Teks tanggal masa aktif paket. |
+- `quota`: GB, angka >= 0; **0 adalah nilai diketahui**, bukan kosong. `null` berarti belum diketahui.
+- `expiredDate`: teks masa aktif 1–128 karakter atau `null` jika tidak diketahui; belum dinormalisasi menjadi tanggal ISO.
+- `provider`: teks 1–128 karakter atau `null`. `signal`: angka dBm terbatas atau `null`.
+- `received_at`: waktu UTC server menerima update terakhir, bukan waktu refresh browser.
+- `heartbeat_at`: waktu UTC update phase 1 terakhir yang diterima. Setiap POST valid adalah heartbeat.
+- `quota_checked_at`: waktu penerimaan server untuk cek kuota sukses terakhir, bukan waktu heartbeat atau waktu pengukuran perangkat. Tidak berubah saat cek gagal/heartbeat saja.
+- `quota_check_status`: `unknown`, `success`, atau `failed`, status percobaan cek terakhir yang dilaporkan. Heartbeat saja mempertahankannya.
+- `status`: dihitung ulang saat request: `Online` jika umur heartbeat 0–180 detik inklusif, selain itu `Offline`. Sebelum ada data: `Unknown`. Data legacy tanpa heartbeat diketahui: `Offline`.
+- `server_time`: waktu evaluasi respons UTC. Jam server harus benar.
 
-Data berada dalam fungsi `latest_node()` di `app.py`. Nilainya tetap sama pada setiap request sampai kode dummy diubah. Jika mengubah data saat server berjalan, hentikan dan jalankan ulang server karena debug/reload otomatis tidak aktif.
+Hanya baris terbaru milik `NODE_ID` yang dibaca; data node lain tidak menjadi fallback.
 
-## Alur frontend dan backend
+### `GET /api/node/history?limit=10`
 
-1. Browser meminta halaman `/` dari Flask.
-2. JavaScript menjalankan `refreshData()` ketika halaman dimuat.
-3. `getNodeData()` memanggil `fetch("/api/node/latest", { cache: "no-store" })`.
-4. Flask mengembalikan JSON. Frontend memeriksa `response.ok`, lalu membaca JSON dengan `response.json()`.
-5. Frontend menambahkan `lastUpdate` menggunakan waktu lokal browser dan memvalidasi data.
-6. Dashboard diperbarui, pembacaan ditambahkan ke riwayat, lalu tabel dirender kembali.
+Publik dan read-only, hanya `NODE_ID` konfigurasi; parameter node dari browser tidak mengubah scope. `limit` berupa digit ASCII bernilai 1–100, default 10; kosong, berulang, pecahan, negatif, atau di luar batas menghasilkan 400. Respons `{nodeId, readings, server_time}` memakai `Cache-Control: no-store`; database kosong/tidak ada menghasilkan `readings: []`, gagal dibaca menghasilkan 503.
 
-`fetch()` bekerja secara asynchronous: kode menggunakan `await` untuk menunggu respons tanpa melakukan reload halaman. URL relatif memakai host dan port yang sama dengan halaman Flask sehingga tidak membutuhkan konfigurasi CORS tambahan.
+`readings` berisi snapshot SQLite menurut ID penerimaan menurun (terbaru dahulu), termasuk timestamp UTC server dan kuota nullable. Field sama seperti latest, tetapi `status` diganti `status_at_observation` yang tersimpan saat penerimaan; `server_time` hanya di tingkat respons. Status historis tidak dihitung ulang menjadi status live. Status legacy merupakan catatan lama, bukan bukti heartbeat valid. GET tidak membuat database, memigrasi, atau menambah snapshot. Reload browser tetap membaca riwayat tersimpan.
 
-### Pembagian fungsi JavaScript
+### `POST /api/node/update`
 
-| Fungsi | Tanggung jawab |
-| --- | --- |
-| `getNodeData()` | Meminta data API dan menambahkan waktu penerimaan. |
-| `validateNodeData()` | Memeriksa field wajib, status, serta tipe nilai kuota dan sinyal. |
-| `renderDashboard()` | Memperbarui kartu dan indikator. |
-| `addHistory()` | Menambahkan salinan data terbaru, maksimal 10 pembacaan. |
-| `renderHistory()` | Menampilkan riwayat ke tabel. |
-| `refreshData()` | Mengatur pengambilan, validasi, render, dan penanganan error. |
-| `quotaStatus()` | Menentukan label dan warna status kuota. |
+Wajib `Authorization: Bearer <NODE_API_TOKEN>` dan `Content-Type: application/json`. Token dibaca dari environment server, dibandingkan dengan `hmac.compare_digest`. Konfigurasi token hilang/kosong: 503 (fail closed); kredensial salah/hilang: 401. Browser tidak memerlukan atau menyimpan token.
+
+Payload terkecil, heartbeat saja:
+
+```json
+{"nodeId": "NODE-001"}
+```
+
+Cek kuota sukses:
+
+```json
+{"nodeId": "NODE-001", "quotaCheck": "success", "quota": 0, "expiredDate": null, "provider": "by.U", "signal": -75}
+```
+
+Cek kuota gagal:
+
+```json
+{"nodeId": "NODE-001", "quotaCheck": "failed"}
+```
+
+- `nodeId` wajib tepat sama konfigurasi server.
+- `provider` dan `signal` opsional di semua update: tidak dikirim mempertahankan nilai lama, `null` menghapus nilai menjadi tidak diketahui.
+- `quotaCheck` opsional; jika hadir hanya `success` atau `failed`.
+- `success` wajib menyertakan `quota` angka terbatas >= 0 dan `expiredDate` teks atau `null`. Mengganti nilai, masa aktif, dan waktu sukses sebagai satu transaksi.
+- Tanpa `quotaCheck` atau dengan `failed`, `quota`/`expiredDate` dilarang. Nilai kuota, masa aktif, dan waktu sukses lama tetap tersimpan, termasuk nol.
+- Field lain ditolak, termasuk `status` dan timestamp kiriman. Kontrak enam field prototype lama diganti kontrak ini.
+- Tipe salah, boolean sebagai angka, NaN/Infinity, JSON rusak, atau node salah: 400. Media type salah: 415. Payload >16 KiB: 413. Kegagalan database: 503; tidak melaporkan sukses atau menimpa data lama.
+- Sukses: HTTP 200 dengan bentuk respons yang sama seperti GET. POST append snapshot dalam transaksi SQLite; baca state lama dan simpan state baru di bawah write lock.
+
+Contoh mengirim heartbeat dari terminal yang mempunyai token sama:
+
+```powershell
+$headers = @{ Authorization = "Bearer $env:NODE_API_TOKEN" }
+$body = @{ nodeId = 'NODE-001' } | ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri 'http://127.0.0.1:5000/api/node/update' -Headers $headers -ContentType 'application/json' -Body $body
+```
+
+Usulan pengirim: heartbeat setiap **60 detik**. Cek kuota memiliki jadwal sendiri; laporkan `failed` jika percobaan gagal. Jangan mengirim ulang nilai cache sebagai cek sukses baru.
+
+## SQLite dan migrasi
+
+Database berada di sebelah `app.py`. POST valid pertama membuat/memigrasi skema secara transaksional (`BEGIN IMMEDIATE`). Migrasi skema prototype mempertahankan semua ID, baris, nilai, dan `received_at` persis, termasuk node lain. Kolom kuota/masa aktif kini nullable. Kegagalan migrasi atau INSERT membatalkan seluruh transaksi.
+
+Legacy tidak membuktikan kapan kuota terakhir berhasil dicek atau heartbeat valid diterima: `quota_checked_at` dan `heartbeat_at` tetap `null`, status cek `unknown`. GET legacy bisa membaca nilai lama tanpa migrasi. Heartbeat pertama tidak mengarang waktu cek sukses; hanya laporan `success` baru mengisinya. Simpan backup database sebelum mengganti versi aplikasi operasional. Migrasi otomatis hanya mencakup skema prototype `readings` yang ada, bukan skema arbitrer.
 
 ## Perilaku dashboard
 
-- **Refresh Data** memanggil API kembali, bukan membuat angka acak di JavaScript.
-- **Last Update** adalah waktu browser setelah menerima respons, bukan waktu pembacaan SIM7000. Formatnya `HH:MM:SS`; dua request pada detik yang sama dapat menampilkan waktu identik.
-- Status perangkat memakai badge hijau untuk Online dan merah untuk Offline.
-- Sinyal ditampilkan sebagai angka dBm, label, dan indikator bar. Ketika Offline atau sinyal `null`, dashboard menampilkan “Tidak tersedia”. Batas bar masih pendekatan prototype, bukan hasil kalibrasi SIM7000.
-- Riwayat menampilkan maksimal 10 pembacaan terbaru dan hilang saat halaman dimuat ulang.
-- Tombol dinonaktifkan selama request dan diaktifkan kembali setelah selesai.
-- Jika jaringan, respons HTTP, atau format data bermasalah, pesan error tampil. Data sebelumnya tidak dihapus dan riwayat tidak ditambah.
-- Jika request pertama gagal, dashboard tetap menampilkan placeholder. Kegagalan API tidak otomatis berarti node Offline.
+Data dimuat saat awal, lalu polling setiap 10 detik; tombol refresh manual tetap tersedia. Polling berarti browser membaca API, sedangkan heartbeat berarti perangkat mengirim POST. Polling tidak memperbarui heartbeat. Satu siklus membaca latest lalu history; siklus yang masih berjalan tidak ditumpuk, dengan timeout total 9 detik. Timer tab latar belakang dapat ditunda browser. Waktu tampil berasal dari server dalam UTC. Kosong dan nilai belum diketahui tampil eksplisit, nol tampil `0.0 GB`. Offline menampilkan peringatan data usang; cek gagal menampilkan status gagal serta waktu sukses terakhir. Online tidak menjamin kuota baru. Tidak ada batas usia kuota buatan karena interval cek kuota belum disepakati.
 
-### Status kuota
+Jika API gagal, data sebelumnya tetap tampil dengan pesan error; tidak menyimpulkan node Offline dari kegagalan HTTP. Badge kuota: >2 GB Aman, 1–2 GB Peringatan, <1 GB Kritis, null Belum diketahui. Bar sinyal masih pendekatan prototype.
 
-| Sisa kuota | Label | Warna |
-| --- | --- | --- |
-| Lebih dari 2 GB | Aman | Hijau |
-| 1 sampai 2 GB, termasuk kedua batas | Peringatan | Kuning |
-| Kurang dari 1 GB | Kritis | Merah |
-
-Untuk mencoba badge, ubah `quota` pada backend menjadi `2`, `1`, atau `0.8`, jalankan ulang server, lalu tekan Refresh Data.
+Tabel menampilkan 10 observasi terbaru dari API history SQLite, bukan snapshot lokal; polling tidak menambah duplikat. Status tabel berlaku saat observasi, bukan status live kartu perangkat. Kuota historis dapat mempertahankan hasil sukses sebelumnya. Latest dan history dibaca dalam dua request, sehingga update yang masuk di antaranya dapat membuat tabel sedikit lebih baru. Akses keyboard, label tabel, dan live region pesan tetap tersedia.
 
 ## Pengujian
 
-Jalankan dari folder proyek setelah dependensi terinstal:
+Dari folder `iot-monitoring`:
 
 ```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
 .\.venv\Scripts\python.exe -B -m unittest -v test_app
+.\.venv\Scripts\python.exe -m ruff check .
+node --check static/js/script.js
+git diff --check
 ```
 
-Tes memakai test client Flask; server tidak perlu dijalankan terpisah. Pengujian mencakup halaman utama, isi JSON dummy, serta respons file CSS dan JavaScript. Jika contoh data backend sengaja diubah, sesuaikan nilai harapan pada tes API.
+Tes meliputi auth/fail closed, kosong/read-only, nol, heartbeat dan gagal cek, timeout 180 detik, scope node, validasi payload, persistensi lintas proses, migrasi/rollback, kegagalan database, halaman dan aset. Tidak memakai database operasional. History diuji untuk kosong, urutan, persistensi lintas proses, scope node, limit invalid, status historis, dan read-only. Ruff memeriksa kesalahan Python umum; unittest memeriksa perilaku. Pemeriksaan sintaks JavaScript memerlukan Node.js, bukan dependensi aplikasi. Tidak ada typecheck tambahan.
 
-Pemeriksaan manual:
+Pemeriksaan manual: buka database kosong, kirim heartbeat, kirim sukses nol, kirim gagal, lalu Refresh. Pastikan waktu sukses tetap. Setelah >180 detik tanpa heartbeat, Refresh menampilkan Offline. Hentikan server dan Refresh untuk memeriksa error serta data lama. Periksa keyboard dan layar sempit.
 
-1. Buka dashboard dan pastikan data API terlihat pada kartu.
-2. Tunggu beberapa detik, lalu tekan Refresh Data; periksa Last Update dan baris riwayat baru.
-3. Tekan Refresh berulang kali; pastikan riwayat tidak melebihi 10 baris.
-4. Hentikan server tanpa menutup halaman, lalu tekan Refresh untuk melihat pesan error dan memastikan data terakhir tetap tampil.
-5. Jalankan server kembali, lalu tekan Refresh untuk memulihkan pembacaan.
-6. Periksa tampilan pada layar sempit dan navigasi tombol menggunakan keyboard.
+## Batas phase 1
 
-Belum ada konfigurasi lint atau typecheck khusus pada proyek.
-
-## Masalah umum
-
-- **`ModuleNotFoundError: No module named 'flask'`**: instal `requirements.txt` menggunakan interpreter `.venv`, lalu jalankan aplikasi dengan interpreter yang sama.
-- **Dashboard tidak dapat dibuka**: pastikan proses Flask masih berjalan dan alamat memakai port `5000`.
-- **Port 5000 sedang digunakan**: hentikan proses server proyek sebelumnya sebelum menjalankan instance baru.
-- **Tampilan Bootstrap tidak termuat**: periksa koneksi internet atau akses browser ke CDN.
-- **Kuota tidak berubah setelah Refresh**: normal; backend saat ini mengembalikan data dummy tetap.
-
-## Batas tahap saat ini
-
-Belum ada database, penyimpanan riwayat permanen, komunikasi SIM7000, AT Command, USSD, autentikasi, atau pemantauan perangkat asli. Prototype ini khusus untuk memahami alur dashboard, HTTP API, dan backend Flask.
+Belum ada integrasi modem, multi-node, deployment, retensi database, rate limiting, atau replay protection/idempotency. POST berulang dianggap penerimaan baru; gunakan token hanya pada pengirim tepercaya. Snapshot bertambah per update, tanpa pembersihan otomatis. Status layar merupakan status saat refresh terakhir, bukan indikator real-time.
