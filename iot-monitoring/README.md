@@ -4,10 +4,12 @@ Prototype Tugas Akhir monitoring paket data SIM7000. Phase 1 menyediakan Flask, 
 
 ## Teknologi dan struktur
 
-Python 3.9+, Flask 3.1 (`requirements.txt`), SQLite dan unittest bawaan Python. Ruff sebagai dependensi pengembangan (`requirements-dev.txt`), memakai aturan lint default E4/E7/E9/F di `ruff.toml` agar tidak mewarisi konfigurasi luar proyek. HTML/CSS/JavaScript memakai Bootstrap 5 melalui CDN; tampilan lengkap memerlukan internet.
+Python 3.9+, Flask 3.1 (`requirements.txt`), SQLite dan unittest bawaan Python. Ruff sebagai dependensi pengembangan (`requirements-dev.txt`), memakai aturan lint default E4/E7/E9/F di `ruff.toml` agar tidak mewarisi konfigurasi luar proyek. Tampilan memakai HTML, CSS, JavaScript, font sistem, dan ikon SVG lokal; tidak membutuhkan Bootstrap/CDN atau koneksi internet untuk aset UI.
 
 - `app.py`: API, validasi, autentikasi, penyimpanan, migrasi.
 - `test_app.py`: pengujian dengan database sementara, bukan database operasional.
+- `simulator.py`: server dan pengirim HTTP sintetis dengan database sementara terpisah.
+- `test_simulator.py`, `test_dashboard.cjs`: pengujian isolasi simulasi dan penyajian waktu/status dashboard.
 - `templates/index.html`, `static/js/script.js`, `static/css/style.css`: dashboard.
 - `monitoring.sqlite3`: database lokal yang dibuat pada POST valid pertama.
 
@@ -119,11 +121,46 @@ Legacy tidak membuktikan kapan kuota terakhir berhasil dicek atau heartbeat vali
 
 ## Perilaku dashboard
 
-Data dimuat saat awal, lalu polling setiap 10 detik; tombol refresh manual tetap tersedia. Polling berarti browser membaca API, sedangkan heartbeat berarti perangkat mengirim POST. Polling tidak memperbarui heartbeat. Satu siklus membaca latest lalu history; siklus yang masih berjalan tidak ditumpuk, dengan timeout total 9 detik. Timer tab latar belakang dapat ditunda browser. Waktu tampil berasal dari server dalam UTC. Kosong dan nilai belum diketahui tampil eksplisit, nol tampil `0.0 GB`. Offline menampilkan peringatan data usang; cek gagal menampilkan status gagal serta waktu sukses terakhir. Online tidak menjamin kuota baru. Tidak ada batas usia kuota buatan karena interval cek kuota belum disepakati.
+Tema gelap navy dengan aksen cyan. CSS Grid/Flexbox menyusun kartu kuota utama dan empat kartu pendukung. Pada lebar sampai 760 px, riwayat berubah menjadi kartu dengan detail yang dapat dibuka; di desktop, tabel dapat digeser di dalam panel. Semua field observasi tetap tersedia pada kedua tampilan. Polling riwayat yang sama mempertahankan DOM/fokus, dan detail terbuka dipertahankan saat data berubah. Label simulasi tetap terlihat, sedangkan penjelasan panjang ada di “Cara membaca dashboard”. Panduan pemula beserta latihan tersedia di [BELAJAR.md](BELAJAR.md).
+
+Data dimuat saat awal, lalu polling setiap 10 detik; tombol refresh manual tetap tersedia. Polling berarti browser membaca API, sedangkan heartbeat berarti perangkat mengirim POST. Polling tidak memperbarui heartbeat. Satu siklus membaca latest lalu history; siklus yang masih berjalan tidak ditumpuk, dengan timeout total 9 detik. Timer tab latar belakang dapat ditunda browser. Timestamp API/database tetap UTC; dashboard memformatnya dalam WIB (`Asia/Jakarta`), termasuk ketika zona waktu komputer berbeda. Umur pembacaan dihitung dari waktu cek sukses terakhir terhadap `server_time`, bukan jam komputer, dan berlaku saat pembaruan layar. Waktu cek tersebut masih waktu penerimaan server, bukan waktu ukur perangkat. Masa aktif tetap teks operator, tidak dipaksa menjadi tanggal. Kosong dan nilai belum diketahui tampil eksplisit, nol tampil `0.0 GB`. Status cek diterjemahkan menjadi Berhasil/Gagal/Belum diketahui; perangkat menjadi Terhubung/Tidak terhubung. Offline dan cek gagal bisa ditampilkan bersamaan. Online tidak menjamin kuota baru. Tidak ada batas usia kuota buatan karena interval cek kuota belum disepakati.
 
 Jika API gagal, data sebelumnya tetap tampil dengan pesan error; tidak menyimpulkan node Offline dari kegagalan HTTP. Badge kuota: >2 GB Aman, 1–2 GB Peringatan, <1 GB Kritis, null Belum diketahui. Bar sinyal masih pendekatan prototype.
 
 Tabel menampilkan 10 observasi terbaru dari API history SQLite, bukan snapshot lokal; polling tidak menambah duplikat. Status tabel berlaku saat observasi, bukan status live kartu perangkat. Kuota historis dapat mempertahankan hasil sukses sebelumnya. Latest dan history dibaca dalam dua request, sehingga update yang masuk di antaranya dapat membuat tabel sedikit lebih baru. Akses keyboard, label tabel, dan live region pesan tetap tersedia.
+
+Kolom status cek terakhir dan waktu cek sukses menunjukkan konteks setiap nilai kuota. Heartbeat mempertahankan status cek sebelumnya; baris berlabel Berhasil tidak otomatis berarti cek baru terjadi pada baris tersebut.
+
+## Simulasi tanpa modem
+
+Dari folder `iot-monitoring`, gunakan venv dan dependensi yang sama:
+
+```powershell
+.\.venv\Scripts\python.exe -B simulator.py
+```
+
+Buka **http://127.0.0.1:5001/**. Halaman selalu berlabel **SIMULASI — bukan hasil pengukuran perangkat**, memakai node `SIM-NODE-001`. Awalnya kosong. Ketik perintah berikut di terminal simulator, tekan Enter, lalu klik **Refresh Data** atau tunggu polling:
+
+| Perintah | Hasil |
+| --- | --- |
+| `heartbeat` | Perangkat terhubung; kuota tetap belum diketahui jika belum pernah sukses |
+| `success` | Cek sintetis berhasil: 8,4 GB, provider simulasi, sinyal -75 dBm |
+| `zero` | Cek sintetis berhasil: 0 GB, status Kritis |
+| `failed` | Cek gagal; kuota dan waktu sukses terakhir dipertahankan |
+| `demo` | Kirim heartbeat → sukses 8,4 GB → sukses nol → gagal; hasil akhir nol dan gagal |
+| `quit` | Hentikan server dan hapus database sementara |
+
+`demo` mengirim empat laporan berurutan dengan cepat; untuk mengamati perubahan satu per satu gunakan perintah terpisah. Tidak ada heartbeat otomatis. Setelah **lebih dari 180 detik** tanpa pengiriman, refresh akan menampilkan Tidak terhubung. Jangan menyimpulkan paket habis hanya dari status ini. Masa aktif sintetis sengaja belum diketahui.
+
+Simulator menjalankan server dan pengirim dalam satu proses khusus, memakai HTTP lokal nyata, token acak hanya di memori, serta database di folder sementara OS. Tidak membaca/menulis `monitoring.sqlite3` dan tidak memakai token operasional. Jangan mengimpor dan menjalankan simulator dalam proses server operasional. Database simulasi dihapus saat keluar normal, Ctrl+C, atau akhir input; penghentian paksa dapat menyisakan folder sementara. Setiap sesi baru dimulai kosong. Data ini bukan data penelitian.
+
+Untuk langsung mengisi demo:
+
+```powershell
+.\.venv\Scripts\python.exe -B simulator.py --scenario demo
+```
+
+Opsi `--port 5002` tersedia bila 5001 dipakai; `--no-input` menjalankan server tanpa menu sampai Ctrl+C. Server selalu di `127.0.0.1`; tidak menerima alamat tujuan eksternal.
 
 ## Pengujian
 
@@ -131,9 +168,10 @@ Dari folder `iot-monitoring`:
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
-.\.venv\Scripts\python.exe -B -m unittest -v test_app
+.\.venv\Scripts\python.exe -B -m unittest -v test_app test_simulator
 .\.venv\Scripts\python.exe -m ruff check .
 node --check static/js/script.js
+node --test test_dashboard.cjs
 git diff --check
 ```
 

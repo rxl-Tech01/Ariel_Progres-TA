@@ -12,6 +12,7 @@ app = Flask(__name__)
 app.config["DATABASE"] = Path(app.root_path) / "monitoring.sqlite3"
 app.config["NODE_ID"] = os.environ.get("NODE_ID", "NODE-001")
 app.config["MAX_CONTENT_LENGTH"] = 16384
+app.config["SIMULATION"] = False
 
 
 def utc_now():
@@ -94,7 +95,7 @@ def database_error(error):
 
 @app.get("/")
 def index():
-    return render_template("index.html")
+    return render_template("index.html", simulation=app.config["SIMULATION"])
 
 
 @app.get("/api/node/latest")
