@@ -1,91 +1,129 @@
 <!doctype html>
+{% set demo_mode = demo_mode | default(true) %}
 <html lang="id">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0b111b">
-  <meta name="color-scheme" content="dark">
-  <title>QuotaNode | {% if simulation %}Simulasi{% else %}Monitoring IoT{% endif %}</title>
-  <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
-  <script src="{{ url_for('static', filename='js/script.js') }}" defer></script>
+  <meta name="theme-color" content="#0f172a">
+  <meta name="color-scheme" content="light">
+  <title>QuotaNode | {% if demo_mode %}Demo · Data Dummy{% else %}Monitoring IoT{% endif %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='stitch-20261101') }}">
+  <script src="{{ url_for('static', filename='js/script.js', v='stitch-20261101') }}" defer></script>
 </head>
-<body>
-  {# Macro Jinja: satu definisi ikon dipakai berulang tanpa library eksternal. #}
+<body data-demo-mode="{{ 'true' if demo_mode else 'false' }}">
   {% macro icon(name) -%}
-  <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    {% if name == 'node' %}<rect x="7" y="7" width="10" height="10" rx="2"/><path d="M9 3v4m6-4v4M9 17v4m6-4v4M3 9h4m-4 6h4m10-6h4m-4 6h4"/><path d="M10 10h4v4h-4z"/>
-    {% elif name == 'refresh' %}<path d="M20 7v5h-5M4 17v-5h5"/><path d="M6 6a8 8 0 0 1 13 3M5 15a8 8 0 0 0 13 3"/>
+  <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    {% if name == 'node' %}<rect x="7" y="7" width="10" height="10" rx="2"/><path d="M9 3v4m6-4v4M9 17v4m6-4v4M3 9h4m-4 6h4m10-6h4m-4 6h4M10 10h4v4h-4z"/>
+    {% elif name == 'grid' %}<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>
+    {% elif name == 'refresh' %}<path d="M20 7v5h-5M4 17v-5h5M6 6a8 8 0 0 1 13 3M5 15a8 8 0 0 0 13 3"/>
     {% elif name == 'signal' %}<path d="M4 19v-3m5 3v-7m5 7V8m5 11V4"/>
-    {% elif name == 'sim' %}<path d="M8 3h8l3 4v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6z"/><rect x="8" y="10" width="8" height="7" rx="1"/><path d="M12 10v7m-4-3h8"/>
     {% elif name == 'calendar' %}<rect x="4" y="5" width="16" height="16" rx="2"/><path d="M8 3v4m8-4v4M4 10h16m-11 5 2 2 4-4"/>
-    {% elif name == 'check' %}<circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/>
     {% elif name == 'clock' %}<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>
     {% elif name == 'info' %}<circle cx="12" cy="12" r="9"/><path d="M12 11v5m0-9h.01"/>
+    {% elif name == 'chart' %}<path d="M4 3v17h17M8 14l4-5 4 3 5-6"/>
     {% elif name == 'layers' %}<path d="m12 3 9 5-9 5-9-5zM3 12l9 5 9-5M3 16l9 5 9-5"/>
+    {% elif name == 'menu' %}<path d="M4 6h16M4 12h16M4 18h16"/>
+    {% elif name == 'close' %}<path d="m6 6 12 12M6 18 18 6"/>
     {% endif %}
   </svg>
   {%- endmacro %}
+
   <a class="skip-link" href="#overview">Lewati ke konten</a>
-  <header class="site-header">
-    <div class="shell header-inner">
-      <a class="brand" href="{{ url_for('index') }}" aria-label="QuotaNode beranda"><span class="brand-mark">{{ icon('node') }}</span>Quota<span class="brand-accent">Node</span></a>
-      <nav class="primary-nav" aria-label="Navigasi halaman"><a href="#overview">Ringkasan</a><a href="#history">Riwayat</a><a href="#guide">Panduan</a></nav>
-      <span class="header-tag">{{ icon('signal') }} SIM7000</span>
+  <aside class="app-sidebar" id="app-sidebar" aria-label="Navigasi QuotaNode" tabindex="-1">
+    <div class="sidebar-brand">
+      <a class="brand" href="{{ url_for('index') }}" aria-label="QuotaNode beranda">
+        <span class="brand-mark">{{ icon('node') }}</span>
+        <span>QuotaNode<small>Monitoring kuota seluler IoT</small></span>
+      </a>
+      <button class="icon-button sidebar-close" id="sidebar-close" type="button" aria-label="Tutup menu">{{ icon('close') }}</button>
     </div>
-  </header>
-  <main class="shell" id="overview">
-    <div class="page-heading">
-      <div><p class="eyebrow">NODE IoT <span>/</span> MONITORING PAKET DATA</p><h1>Dashboard Monitoring</h1><p class="page-subtitle">Koneksi terpantau. Informasi kuota dalam satu tempat.</p></div>
-      <button id="refresh-button" class="refresh-button" type="button" disabled>{{ icon('refresh') }} <span>Refresh data</span></button>
-    </div>
-    {% if simulation %}
-    <aside class="simulation-notice" aria-label="Mode simulasi"><span class="simulation-label">SIMULASI</span><p>Data uji sintetis, bukan hasil pengukuran perangkat.</p></aside>
-    {% endif %}
-    <noscript><p class="error-note">Aktifkan JavaScript untuk menampilkan data node.</p></noscript>
-    <section class="node-strip" aria-labelledby="node-heading">
-      <div class="node-identity"><span class="node-symbol">{{ icon('node') }}</span><div><h2 id="node-heading" class="overline">PERANGKAT</h2><p id="node-id" class="node-name">—</p></div></div>
-      <div class="node-connection"><span class="field-label">Koneksi perangkat</span><span id="device-status" class="badge text-bg-secondary">Memuat</span></div>
-      <div class="node-updated"><span class="field-label">Data diterima · WIB</span><p id="last-update">Belum ada data</p></div>
-    </section>
-    <!-- CSS Grid mengubah dua kolom desktop menjadi satu kolom pada HP. -->
-    <section class="overview-grid" aria-label="Ringkasan kuota dan jaringan">
-      <article class="panel quota-panel" aria-labelledby="quota-heading">
-        <div class="panel-top"><span class="icon-tile">{{ icon('layers') }}</span><span class="overline">KETERSEDIAAN PAKET</span></div>
-        <div class="quota-main"><h2 id="quota-heading" class="metric-label">Sisa kuota terakhir</h2><p id="quota" class="quota-value is-unknown">Memuat…</p><span id="quota-status" class="badge text-bg-secondary">Belum diketahui</span><p class="quota-caption">Nilai dari cek sukses terakhir.<br>Periksa waktu pembacaan sebelum digunakan.</p></div>
-        <div class="quota-timestamp">{{ icon('clock') }}<div><p class="field-label">Cek sukses terakhir</p><p id="quota-time">Belum diketahui</p><p id="quota-age" class="muted">Umur pembacaan belum diketahui.</p></div></div>
-      </article>
-      <div class="metrics-grid">
-        <article class="panel metric-card"><div class="metric-heading"><h2 class="metric-label">Operator SIM</h2>{{ icon('sim') }}</div><p id="provider" class="metric-value">—</p><p class="metric-description">Provider kartu pada node.</p></article>
-        <article class="panel metric-card"><div class="metric-heading"><h2 class="metric-label">Kekuatan sinyal</h2>{{ icon('signal') }}</div><p id="signal" class="metric-value">—</p><div class="signal-detail"><div id="signal-bars" class="signal-bars" aria-hidden="true"><span></span><span></span><span></span><span></span></div><p id="signal-label" class="metric-description">Belum tersedia</p></div></article>
-        <article class="panel metric-card"><div class="metric-heading"><h2 class="metric-label">Masa aktif paket</h2>{{ icon('calendar') }}</div><p id="expiry" class="metric-value">—</p><p class="metric-description">Dari cek kuota sukses terakhir.</p></article>
-        <article class="panel metric-card"><div class="metric-heading"><h2 class="metric-label">Status cek kuota</h2>{{ icon('check') }}</div><p><span id="check-status" class="badge text-bg-secondary">Belum diketahui</span></p><p id="quota-check" class="metric-description">Cek kuota belum diketahui.</p></article>
+    <div class="target-note"><span>Target integrasi</span><strong>A7670E</strong><small>AT Command / USSD · Rencana pengujian</small></div>
+    <nav class="primary-nav" aria-label="Navigasi halaman">
+      <p class="nav-caption">NAVIGASI UTAMA</p>
+      <a href="#overview" aria-current="location">{{ icon('grid') }}Dashboard</a>
+      <a href="#trends">{{ icon('chart') }}Grafik telemetri</a>
+      <a href="#history">{{ icon('clock') }}Riwayat monitoring</a>
+      <a href="#guide">{{ icon('info') }}Panduan</a>
+    </nav>
+    <div class="sidebar-footer"><span class="sidebar-project">PROYEK TUGAS AKHIR</span><p>Pemantauan ketersediaan paket data pada node IoT.</p><span class="sidebar-stage">{% if demo_mode %}Tahap demo dashboard{% else %}Monitoring satu node{% endif %}</span></div>
+  </aside>
+  <button class="sidebar-backdrop" id="sidebar-backdrop" type="button" tabindex="-1" aria-label="Tutup menu" hidden></button>
+
+  <div class="app-main" id="main-content">
+    <header class="site-header">
+      <div class="header-heading">
+        <button class="icon-button mobile-nav-toggle" id="mobile-nav-toggle" type="button" aria-label="Buka menu" aria-controls="app-sidebar" aria-expanded="false">{{ icon('menu') }}</button>
+        <div><p class="eyebrow">PUSAT PEMANTAUAN KUOTA SELULER</p><div class="title-row"><h1>Dashboard Monitoring</h1><span class="mode-label">{% if demo_mode %}DEMO · DATA DUMMY{% else %}DATA NODE{% endif %}</span></div><p class="page-subtitle">Konektivitas, sisa kuota, dan masa aktif paket data node IoT.</p></div>
       </div>
-    </section>
-    <div class="update-strip">{{ icon('info') }}<p id="refresh-message" role="status" aria-live="polite" aria-atomic="true">Menyiapkan data node.</p><span class="polling-label">Refresh otomatis · 10 dtk</span></div>
-    <section class="panel history-panel" id="history" aria-labelledby="history-heading">
-      <div class="section-heading"><div><p class="overline">AKTIVITAS NODE</p><h2 id="history-heading">Riwayat monitoring</h2></div><span class="count-label"><span id="history-count">0</span> / 10 observasi</span></div>
-      <p class="section-description" id="history-description">Terbaru dahulu · Waktu dalam WIB · Status berlaku saat observasi.</p>
-      <div class="history-table-wrap" tabindex="0" role="region" aria-label="Tabel riwayat; geser untuk melihat semua kolom">
-        <table aria-describedby="history-description">
-          <caption class="sr-only">Kuota dapat berasal dari cek sukses sebelumnya. Setiap baris tidak selalu berarti cek baru.</caption>
-          <thead><tr><th scope="col">Diterima (WIB)</th><th scope="col">Node ID</th><th scope="col">Koneksi</th><th scope="col">Operator</th><th scope="col">Sinyal</th><th scope="col">Sisa kuota</th><th scope="col">Cek terakhir</th><th scope="col">Cek sukses (WIB)</th><th scope="col">Masa aktif</th></tr></thead>
-          <tbody id="history-body"></tbody>
-        </table>
-      </div>
-      <!-- Data yang sama ditampilkan sebagai kartu semantik untuk layar kecil. -->
-      <ul id="history-cards" class="history-cards" aria-label="Riwayat monitoring"></ul>
-      <p class="history-footnote">{{ icon('info') }}Kuota dan status cek dapat dibawa dari laporan sebelumnya, termasuk saat hanya menerima heartbeat.</p>
-    </section>
-    <details class="guide" id="guide">
-      <summary>{{ icon('info') }}Cara membaca dashboard<span class="guide-hint">Lihat panduan</span></summary>
-      <div class="guide-grid">
-        <div><h3>Koneksi ≠ cek kuota</h3><p>Terhubung berarti node mengirim kabar (heartbeat) dalam 180 detik terakhir. Cek kuota memiliki jadwal sendiri. Status koneksi tidak membuktikan paket masih tersedia.</p></div>
-        <div><h3>Perhatikan usia data</h3><p>Cek gagal mempertahankan nilai dan waktu sukses terakhir. Waktu cek adalah waktu laporan diterima server. Umur pembacaan berlaku saat layar diperbarui, bukan penghitung waktu langsung.</p></div>
-        <div><h3>Arti indikator kuota</h3><p>Aman: lebih dari 2 GB. Peringatan: 1–2 GB. Kritis: kurang dari 1 GB. Nol berarti kuota diketahui habis; “Belum diketahui” berarti nilainya belum tersedia.</p></div>
+      <div class="header-actions"><div class="last-received"><span class="field-label">Data terakhir diterima</span><p id="last-update">Belum ada data</p></div><button id="refresh-button" class="refresh-button" type="button" disabled>{{ icon('refresh') }}<span>Refresh tampilan</span></button></div>
+    </header>
+
+    <main class="shell" id="overview" tabindex="-1">
+      {% if demo_mode %}
+      <aside class="simulation-notice" aria-labelledby="demo-heading">{{ icon('info') }}<div><div class="notice-title"><h2 id="demo-heading">Hardware belum terhubung</h2><span class="simulation-label">{% if simulation %}SIMULASI{% else %}DEMO{% endif %}</span></div><p>Angka dan status berasal dari data dummy atau pengujian dashboard. Belum ada pembacaan langsung dari modem pada aplikasi ini.</p></div></aside>
+      {% endif %}
+      <noscript><p class="error-note">Aktifkan JavaScript untuk menampilkan data node. Menu navigasi tetap dapat digunakan.</p></noscript>
+      <div class="system-strip"><span>{{ icon('clock') }}Pembaruan otomatis <strong>10 detik</strong></span><span>Waktu ditampilkan dalam <strong>WIB</strong></span></div>
+
+      <!-- ID tetap menjadi penghubung antara HTML dan data dari API lama. -->
+      <section class="dashboard-grid" aria-label="Ringkasan perangkat, jaringan, kuota, dan masa aktif">
+        <article class="panel metric-card device-panel" aria-labelledby="device-heading">
+          <div class="card-heading"><h2 id="device-heading">Status node</h2>{{ icon('node') }}</div>
+          <p id="node-id" class="node-name">Memuat…</p>
+          <p class="status-line"><span id="device-status" class="badge text-bg-secondary">{% if demo_mode %}Hardware belum terhubung{% else %}Belum diketahui{% endif %}</span></p>
+          <dl class="device-fields"><div><dt>Target modem</dt><dd>A7670E</dd></div><div><dt>{% if demo_mode %}Sumber data{% else %}Koneksi{% endif %}</dt><dd>{% if demo_mode %}Dummy / pengujian{% else %}Heartbeat ≤ 180 dtk{% endif %}</dd></div></dl>
+          <p class="metric-description card-footnote">Status heartbeat dan hasil cek kuota ditampilkan secara terpisah.</p>
+        </article>
+        <article class="panel metric-card network-panel" aria-labelledby="network-heading">
+          <div class="card-heading"><h2 id="network-heading">Operator &amp; sinyal</h2>{{ icon('signal') }}</div>
+          <p id="provider" class="operator-value">Belum diketahui</p>
+          <div class="signal-detail"><p id="signal" class="signal-value">Belum diketahui</p><div id="signal-bars" class="signal-bars" aria-hidden="true"><span></span><span></span><span></span><span></span></div></div>
+          <p id="signal-label" class="metric-description">Sinyal belum tersedia</p>
+          <p class="metric-description card-footnote">{% if demo_mode %}Nilai sinyal contoh, belum diukur dari modem.{% else %}Sinyal ditampilkan saat heartbeat masih aktif.{% endif %}</p>
+        </article>
+        <article class="panel metric-card quota-panel" aria-labelledby="quota-heading">
+          <div class="card-heading"><h2 id="quota-heading">Sisa kuota data</h2>{{ icon('layers') }}</div>
+          <p id="quota" class="quota-value is-unknown">Memuat…</p><p><span id="quota-status" class="badge text-bg-secondary">Belum diketahui</span></p>
+          <p class="quota-caption">{% if demo_mode %}Nilai kuota contoh untuk pengujian.{% else %}Sisa kuota dari cek sukses terakhir.{% endif %}</p>
+          <div class="card-note"><p class="field-label">{% if demo_mode %}Cek simulasi sukses terakhir{% else %}Cek sukses terakhir{% endif %}</p><p id="quota-time" class="data-time">Belum diketahui</p><p id="quota-age" class="metric-description">Umur pembacaan belum diketahui.</p></div>
+        </article>
+        <article class="panel metric-card validity-panel" aria-labelledby="validity-heading">
+          <div class="card-heading"><h2 id="validity-heading">Masa aktif paket</h2>{{ icon('calendar') }}</div>
+          <p id="expiry" class="expiry-value">Belum diketahui</p><p class="metric-description">{% if demo_mode %}Masa aktif contoh untuk pengujian.{% else %}Masa aktif dari cek sukses terakhir.{% endif %}</p>
+          <div class="card-note"><p class="field-label">Hasil laporan cek terakhir</p><p class="check-badge"><span id="check-status" class="badge text-bg-secondary">Belum diketahui</span></p><p id="quota-check" class="metric-description">Belum ada hasil cek kuota yang terkonfirmasi.</p></div>
+        </article>
+      </section>
+      <div class="update-strip">{{ icon('info') }}<p id="refresh-message" role="status" aria-live="polite" aria-atomic="true">Menyiapkan data node.</p></div>
+
+      <section class="panel trends-panel" id="trends" aria-labelledby="trends-heading">
+        <div class="section-heading"><div><p class="overline">TELEMETRI NODE</p><h2 id="trends-heading">Tren kuota &amp; sinyal{% if demo_mode %} · Data dummy{% endif %}</h2></div><span class="count-label">10 observasi terakhir</span></div>
+        <p class="section-description">{% if demo_mode %}Visualisasi data uji tersimpan, belum mewakili pengukuran perangkat sebenarnya.{% else %}Nilai riwayat tersimpan, diurutkan menurut waktu penerimaan.{% endif %}</p>
+        <div class="charts-grid">
+          {% for key, heading, unit in [('quota', 'Sisa kuota', 'GB'), ('signal', 'Kekuatan sinyal', 'dBm')] %}
+          <figure class="chart-card"><figcaption><span>{{ heading }}{% if demo_mode %} (dummy){% endif %}</span><span class="field-label">{{ unit }}</span></figcaption><div class="chart-plot"><svg id="{{ key }}-chart" viewBox="0 0 600 180" role="img" aria-label="Tren {{ heading | lower }}{% if demo_mode %} data dummy{% endif %}" hidden></svg><p id="{{ key }}-chart-empty" class="chart-empty">Belum ada riwayat {{ heading | lower }}.</p></div><div class="chart-range"><span id="{{ key }}-chart-start">—</span><span id="{{ key }}-chart-end">—</span></div></figure>
+          {% endfor %}
+        </div>
+        <p class="history-footnote">{{ icon('info') }}Grafik kuota memakai waktu cek sukses; heartbeat berulang tidak dihitung sebagai cek baru.</p>
+      </section>
+
+      <section class="panel history-panel" id="history" aria-labelledby="history-heading">
+        <div class="section-heading"><div><p class="overline">AKTIVITAS NODE</p><h2 id="history-heading">{% if demo_mode %}Riwayat data dummy{% else %}Riwayat monitoring terakhir{% endif %}</h2></div><span class="count-label"><span id="history-count">0</span> / 10 observasi</span></div>
+        <p class="section-description" id="history-description">Terbaru dahulu · Waktu dalam WIB · {% if demo_mode %}Status koneksi dan cek merupakan skenario pengujian.{% else %}Status berlaku saat observasi.{% endif %}</p>
+        <div class="history-table-wrap" tabindex="0" role="region" aria-label="Tabel riwayat; geser untuk melihat semua kolom"><table aria-describedby="history-description"><caption class="sr-only">Kuota dapat berasal dari cek sukses sebelumnya. Setiap baris tidak selalu berarti cek baru.</caption><thead><tr><th scope="col">Diterima (WIB)</th><th scope="col">Node ID</th><th scope="col">Koneksi{% if demo_mode %} simulasi{% endif %}</th><th scope="col">Operator</th><th scope="col">Sinyal</th><th scope="col">Sisa kuota</th><th scope="col">Cek terakhir</th><th scope="col">Cek sukses (WIB)</th><th scope="col">Masa aktif</th></tr></thead><tbody id="history-body"></tbody></table></div>
+        <ul id="history-cards" class="history-cards" aria-label="Riwayat monitoring"></ul>
+        <p class="history-footnote">{{ icon('info') }}Kuota dan hasil cek dapat berasal dari laporan sebelumnya, termasuk saat hanya menerima heartbeat.</p>
+      </section>
+
+      <details class="guide panel" id="guide"><summary>{{ icon('info') }}Cara membaca dashboard<span class="guide-hint">Lihat panduan</span></summary><div class="guide-grid">
+        {% if demo_mode %}<div><h3>Tahap pengembangan</h3><p>Dashboard masih dalam tahap demo. Semua angka dan status adalah data dummy atau data uji. A7670E merupakan target integrasi; pembacaan kuota modem belum terhubung ke aplikasi ini.</p></div>{% endif %}
+        <div><h3>Koneksi dan cek kuota</h3><p>{% if demo_mode %}Online pada riwayat hanya status simulasi. Nantinya, {% endif %}status terhubung dihitung dari heartbeat dalam 180 detik terakhir. Status koneksi tidak membuktikan kuota masih tersedia.</p></div>
+        <div><h3>Perhatikan usia data</h3><p>Cek gagal mempertahankan nilai dan waktu sukses terakhir. Waktu cek adalah waktu laporan diterima server. Umur pembacaan dihitung saat layar diperbarui.</p></div>
+        <div><h3>Arti indikator kuota</h3><p>Aman: lebih dari 2 GB. Peringatan: 1–2 GB. Kritis: kurang dari 1 GB. Nol berarti kuota habis; “Belum diketahui” berarti nilainya belum tersedia.</p></div>
+        <div><h3>Refresh dan perintah modem</h3><p>Refresh hanya mengambil data yang sudah tersimpan di server. Tidak ada AT Command atau USSD yang dikirim dari tombol ini. Dashboard belum menyediakan perintah cek kuota manual.</p></div>
         {% if simulation %}<div><h3>Tentang simulasi</h3><p>Data sintetis memakai database sementara terpisah, dihapus saat simulator ditutup normal. Simulasi tidak mengirim heartbeat otomatis dan bukan data penelitian.</p></div>{% endif %}
-      </div>
-    </details>
-  </main>
-  <footer class="shell site-footer"><span>QuotaNode <span class="muted">/ Monitoring IoT</span></span><span>Proyek tugas akhir · SIM7000</span></footer>
+      </div></details>
+      <footer class="site-footer"><span><strong>QuotaNode</strong> · Pemantauan kuota seluler IoT</span><span>{% if demo_mode %}Prototipe demo · Data dummy{% else %}Proyek tugas akhir{% endif %}</span></footer>
+    </main>
+  </div>
 </body>
 </html>

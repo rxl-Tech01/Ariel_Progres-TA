@@ -1,6 +1,8 @@
 let refreshing = false;
 let hasRenderedData = false;
 let lastHistoryJSON = null;
+// Label demo tetap berlaku meskipun data uji melaporkan status Online.
+const demoMode = document.body?.dataset.demoMode !== "false";
 
 const wibFormatter = new Intl.DateTimeFormat("id-ID", {
   timeZone: "Asia/Jakarta", day: "2-digit", month: "short", year: "numeric",
@@ -12,10 +14,12 @@ function formatTime(value) {
 }
 
 function checkLabel(status) {
-  return { unknown: "Belum diketahui", success: "Berhasil", failed: "Gagal" }[status];
+  const label = { unknown: "Belum diketahui", success: "Berhasil", failed: "Gagal" }[status];
+  return demoMode && status !== "unknown" ? `${label} (simulasi)` : label;
 }
 
 function deviceLabel(status) {
+  if (demoMode) return { Unknown: "Belum diketahui", Online: "Online (simulasi)", Offline: "Offline (simulasi)" }[status];
   return { Unknown: "Belum diketahui", Online: "Terhubung", Offline: "Tidak terhubung" }[status];
 }
 
@@ -76,7 +80,7 @@ function renderDashboard(data) {
   const level = signalLevel(data);
   const values = {
     "node-id": data.nodeId,
-    "device-status": data.hasData ? deviceLabel(data.status) : "Belum ada data",
+    "device-status": demoMode ? "Hardware belum terhubung" : data.hasData ? deviceLabel(data.status) : "Belum ada data",
     provider: data.provider ?? "Belum diketahui",
     signal: signalText(data),
     "signal-label": level ? `${["", "Sangat lemah", "Lemah", "Sedang", "Kuat"][level]} · ${level}/4 bar` : "0/4 bar · Sinyal tidak tersedia",
@@ -85,7 +89,9 @@ function renderDashboard(data) {
     "last-update": data.received_at === null ? "Belum ada data" : formatTime(data.received_at),
     "check-status": checkLabel(data.quota_check_status),
     "quota-time": formatTime(data.quota_checked_at),
-    "quota-check": data.quota_check_status === "failed"
+    "quota-check": demoMode
+      ? "Hasil skenario pengujian, belum ada cek kuota melalui modem."
+      : data.quota_check_status === "failed"
       ? "Pembaruan gagal. Periksa waktu dan nilai terakhir yang tersedia."
       : data.quota_check_status === "success" ? "Laporan cek terakhir berhasil. Perhatikan umur pembacaan kuota."
       : "Belum ada hasil cek kuota yang terkonfirmasi.",
@@ -99,11 +105,11 @@ function renderDashboard(data) {
 
   const quotaBadge = document.getElementById("quota-status");
   const quotaState = quotaStatus(data.quota);
-  quotaBadge.textContent = quotaState.label;
+  quotaBadge.textContent = demoMode && data.quota !== null ? `${quotaState.label} (contoh)` : quotaState.label;
   quotaBadge.className = `badge text-bg-${quotaState.color}`;
   document.getElementById("quota").className = `quota-value${data.quota === null ? " is-unknown" : ""}`;
   document.getElementById("check-status").className = checkClass(data.quota_check_status);
-  document.getElementById("device-status").className = statusClass(data.status);
+  document.getElementById("device-status").className = statusClass(demoMode ? "Unknown" : data.status);
   Array.from(document.getElementById("signal-bars").children).forEach((bar, index) => {
     bar.className = index < level ? "active" : "";
   });
@@ -161,7 +167,71 @@ function renderHistory(history) {
     body.appendChild(row);
   }
   renderMobileHistory(history);
+  renderTrends(history);
   lastHistoryJSON = historyJSON;
+}
+
+function trendSeries(history, key) {
+  const seen = new Set();
+  const readings = history.filter(reading => Number.isFinite(reading[key]) &&
+    (key !== "quota" || reading.quota_checked_at !== null));
+  return readings.map(reading => ({
+    time: key === "quota" ? reading.quota_checked_at : reading.received_at,
+    value: reading[key]
+  })).sort((a, b) => Date.parse(a.time) - Date.parse(b.time)).filter(point => {
+    if (seen.has(point.time)) return false;
+    seen.add(point.time);
+    return true;
+  });
+}
+
+function svgElement(tag, attributes, value) {
+  const element = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  for (const [name, attribute] of Object.entries(attributes)) {
+    element.setAttribute(name, attribute);
+  }
+  if (value !== undefined) element.textContent = value;
+  return element;
+}
+
+function renderTrends(history) {
+  for (const key of ["quota", "signal"]) {
+    const series = trendSeries(history, key);
+    const chart = document.getElementById(`${key}-chart`);
+    chart.replaceChildren();
+    // SVG tidak memiliki properti hidden yang merefleksikan atribut HTML.
+    chart.toggleAttribute("hidden", series.length === 0);
+    document.getElementById(`${key}-chart-empty`).hidden = series.length > 0;
+    document.getElementById(`${key}-chart-start`).textContent = series.length ? formatTime(series[0].time) : "—";
+    document.getElementById(`${key}-chart-end`).textContent = series.length ? formatTime(series[series.length - 1].time) : "—";
+    if (!series.length) continue;
+
+    const values = series.map(point => point.value);
+    const low = Math.min(...values);
+    const high = Math.max(...values);
+    // Normalisasi menghindari overflow untuk angka API yang sangat besar.
+    const scale = Math.max(Math.abs(low), Math.abs(high), 1);
+    const range = high / scale - low / scale;
+    const start = Date.parse(series[0].time);
+    const duration = Date.parse(series[series.length - 1].time) - start;
+    const points = series.map(point => ({
+      ...point,
+      x: duration ? 60 + (Date.parse(point.time) - start) / duration * 520 : 320,
+      y: range ? 152 - (point.value / scale - low / scale) / range * 124 : 90
+    }));
+    for (const y of [28, 90, 152]) {
+      chart.appendChild(svgElement("line", { x1: 60, x2: 580, y1: y, y2: y, class: "chart-gridline" }));
+    }
+    const axisLabel = value => new Intl.NumberFormat("id-ID", { maximumFractionDigits: 1, notation: "compact" }).format(value);
+    chart.appendChild(svgElement("text", { x: 4, y: range ? 32 : 94, class: "chart-axis" }, axisLabel(high)));
+    if (range) chart.appendChild(svgElement("text", { x: 4, y: 156, class: "chart-axis" }, axisLabel(low)));
+    chart.appendChild(svgElement("polyline", { points: points.map(point => `${point.x},${point.y}`).join(" "), class: "chart-line" }));
+    for (const point of points) {
+      const circle = svgElement("circle", { cx: point.x, cy: point.y, r: 4, class: "chart-point" });
+      circle.appendChild(svgElement("title", {}, `${formatTime(point.time)} · ${point.value} ${key === "quota" ? "GB" : "dBm"}${demoMode ? " (data dummy)" : ""}`));
+      chart.appendChild(circle);
+    }
+  }
 }
 
 // textContent menampilkan data sebagai teks, bukan mengeksekusinya sebagai HTML.
@@ -224,7 +294,7 @@ async function refreshData() {
   const message = document.getElementById("refresh-message");
   button.disabled = true;
   message.classList.remove("is-error");
-  message.textContent = "Mengambil data node…";
+  message.textContent = demoMode ? "Memperbarui tampilan data dummy…" : "Mengambil data node…";
 
   try {
     const data = await getNodeData("/api/node/latest", controller.signal);
@@ -245,7 +315,10 @@ async function refreshData() {
     renderHistory(history.readings);
     hasRenderedData = data.hasData || history.readings.length > 0;
     const notices = [];
-    if (!data.hasData) notices.push("Belum ada data untuk node ini.");
+    if (demoMode) notices.push(data.hasData
+      ? "Menampilkan data dummy. Hardware belum terhubung."
+      : "Belum ada data uji tersimpan. Hardware belum terhubung.");
+    else if (!data.hasData) notices.push("Belum ada data untuk node ini.");
     else {
       if (data.status === "Offline") notices.push("Perangkat tidak terhubung atau waktu kabar terakhir belum diketahui. Data terakhir mungkin usang.");
       if (data.quota_check_status === "failed") notices.push(data.quota_checked_at === null
@@ -279,3 +352,82 @@ console.assert(
 document.getElementById("refresh-button").addEventListener("click", refreshData);
 refreshData();
 setInterval(refreshData, 10000);
+
+// Navigasi hanya mengubah tampilan; tidak mengirim perintah ke modem atau API.
+function initSidebar() {
+  if (typeof window === "undefined" || !window.matchMedia) return;
+  const sidebar = document.getElementById("app-sidebar");
+  const toggle = document.getElementById("mobile-nav-toggle");
+  const close = document.getElementById("sidebar-close");
+  const backdrop = document.getElementById("sidebar-backdrop");
+  const main = document.getElementById("main-content");
+  if (!sidebar || !toggle || !close || !backdrop || !main) return;
+  const desktop = window.matchMedia("(min-width: 1024px)");
+  const links = Array.from(sidebar.querySelectorAll("nav a"));
+  let open = false;
+
+  function setOpen(requested, restoreFocus = true) {
+    open = requested && !desktop.matches;
+    document.body.classList.toggle("sidebar-open", open);
+    toggle.setAttribute("aria-expanded", String(open));
+    backdrop.hidden = !open;
+    main.inert = open;
+    sidebar.inert = !desktop.matches && !open;
+    if (open) {
+      sidebar.setAttribute("role", "dialog");
+      sidebar.setAttribute("aria-modal", "true");
+      // Tunggu drawer terlihat sebelum memindahkan fokus keyboard.
+      window.requestAnimationFrame(() => { if (open) close.focus(); });
+    } else {
+      sidebar.removeAttribute("role");
+      sidebar.removeAttribute("aria-modal");
+      if (restoreFocus && !desktop.matches) toggle.focus();
+    }
+  }
+
+  function updateCurrentLink() {
+    const current = window.location.hash || "#overview";
+    for (const link of links) {
+      if (link.getAttribute("href") === current) link.setAttribute("aria-current", "location");
+      else link.removeAttribute("aria-current");
+    }
+  }
+
+  document.body.classList.add("nav-enhanced");
+  toggle.addEventListener("click", () => setOpen(true));
+  close.addEventListener("click", () => setOpen(false));
+  backdrop.addEventListener("click", () => setOpen(false));
+  for (const link of links) {
+    link.addEventListener("click", () => {
+      if (!desktop.matches) setOpen(false, false);
+      const destination = document.querySelector(link.getAttribute("href"));
+      if (destination) {
+        if (destination.tagName === "DETAILS") destination.open = true;
+        destination.setAttribute("tabindex", "-1");
+        destination.focus({ preventScroll: true });
+      }
+    });
+  }
+  document.addEventListener("keydown", event => {
+    if (!open) return;
+    if (event.key === "Escape") {
+      event.preventDefault();
+      setOpen(false);
+    } else if (event.key === "Tab") {
+      const items = Array.from(sidebar.querySelectorAll("a[href], button:not([disabled])"));
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault(); last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault(); first.focus();
+      }
+    }
+  });
+  desktop.addEventListener("change", () => setOpen(false, sidebar.contains(document.activeElement)));
+  window.addEventListener("hashchange", updateCurrentLink);
+  setOpen(false, false);
+  updateCurrentLink();
+}
+
+initSidebar();

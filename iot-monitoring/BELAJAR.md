@@ -1,127 +1,105 @@
-# Belajar dari dashboard QuotaNode
+# Belajar integrasi Stitch ke QuotaNode
 
-Mulai dengan tiga file: `templates/index.html`, `static/css/style.css`, dan `static/js/script.js`. Kita menggunakan HTML, CSS, dan JavaScript biasa. Flask di `app.py` menyajikan halaman dan data dari SQLite. Tidak perlu mempelajari framework frontend tambahan untuk tahap ini.
+Desain Stitch sudah diadaptasi menjadi HTML, CSS, dan JavaScript biasa. Flask tetap menyajikan halaman serta API SQLite yang sama. A7670E ditulis sebagai target integrasi; data demo bukan hasil pengukuran modem.
 
-## 1. HTML: tempat data ditampilkan
+## 1. HTML: menempatkan data
 
-Cari `id="quota"` di `templates/index.html`:
+Buka `templates/index.html`. Sidebar, header, empat kartu, grafik, riwayat, dan panduan ada di file ini. Bentuk visual mengikuti export Stitch, sedangkan angka statis export sudah dihapus.
 
 ```html
 <p id="quota" class="quota-value is-unknown">Memuat…</p>
 ```
 
-- `p` adalah elemen paragraf.
-- `id="quota"` adalah alamat unik yang dicari JavaScript.
-- `class="quota-value"` menghubungkan elemen dengan aturan tampilan CSS.
-- `is-unknown` mengecilkan ukuran tulisan saat isinya berupa kalimat.
-- `Memuat…` adalah isi awal, diganti setelah API memberi respons.
+`id="quota"` dipakai JavaScript untuk menemukan tempat sisa kuota. `class` menentukan tampilannya. Isi awal diganti setelah API berhasil dibaca. Pertahankan ID saat mengubah susunan kartu.
 
-Tag `section` mengelompokkan bagian halaman, `article` menjadi kartu, dan `nav` menampung navigasi. Tautan `href="#history"` melompat ke bagian dengan `id="history"` pada halaman yang sama.
+Jinja seperti `{% if demo_mode %}` dijalankan oleh Flask sebelum halaman dikirim. `DEMO_MODE` memberi label data dummy. `SIMULATION` menandai simulator yang memakai database sementara. Keduanya memiliki tujuan berbeda.
 
-Bagian `{% if simulation %}` bukan HTML biasa. Itu sintaks Jinja yang dijalankan Flask sebelum HTML dikirim ke browser. Label simulasi hanya dibuat ketika server berada dalam mode simulasi. Macro `icon()` membuat SVG kecil yang dipakai ulang; ikon tidak bergantung pada internet.
+**Latihan:** ubah kalimat pada `page-subtitle`, simpan, jalankan ulang server bila template masih tersimpan di memori, lalu reload browser.
 
-**Latihan:** ubah kalimat di `page-subtitle`, simpan, lalu reload halaman. Jangan mengganti ID yang dipakai JavaScript. Jika perubahan HTML belum terlihat, Flask mungkin menyimpan template di memori; jalankan ulang server pengembangan.
+## 2. CSS: menerapkan desain responsif
 
-## 2. CSS: warna, jarak, dan tata letak
-
-Di awal `static/css/style.css`, `:root` menyimpan variabel warna:
+Buka `static/css/style.css`. Variabel di `:root` menyimpan warna utama:
 
 ```css
 :root {
-  --page-bg: #0b111b;
-  --accent: #64ddcf;
+  --page-bg: #f8fafc;
+  --accent: #2563eb;
 }
 ```
 
-`background: var(--page-bg)` mengambil warna latar dari variabel itu. Dengan begitu, beberapa bagian halaman menggunakan warna yang konsisten.
+Semua aset UI lokal: tidak ada Tailwind CDN, Google Fonts, atau build frontend tambahan. Font memakai Inter atau JetBrains Mono jika sudah tersedia di komputer, dengan font sistem sebagai cadangan.
 
-Cari `.overview-grid`. Pada desktop, grid membagi ruang untuk kuota dan kartu pendukung:
+Grid kartu menjadi dua kolom mulai 640 px dan empat kolom mulai 1280 px. Sidebar menetap mulai 1024 px; di bawahnya menjadi drawer. Riwayat memakai kartu di bawah 768 px dan tabel yang dapat digeser pada layar lebih lebar.
 
 ```css
-.overview-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
-  gap: 18px;
+@media (min-width:640px) {
+  .dashboard-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }
 ```
 
-`fr` adalah bagian ruang yang tersedia. Kolom kanan mendapat sedikit lebih banyak ruang. `gap` memberi jarak antarkolom. `minmax(0, ...)` mengizinkan kolom mengecil ketika teks panjang, supaya halaman tidak melebar di luar layar.
+`minmax(0,1fr)` membagi ruang secara seimbang dan mengizinkan teks panjang membungkus di dalam kartu.
 
-**Latihan:** ubah `gap` dari `18px` menjadi `24px`, lihat perbedaannya, lalu kembalikan. Ubah satu hal setiap kali agar kamu tahu penyebab perubahan.
+**Latihan:** buka DevTools browser dan pilih lebar 375, 768, 1024, lalu 1440 px. Perhatikan perubahan grid dan riwayat. Gunakan Tab, Shift+Tab, Enter, dan Escape untuk memeriksa navigasi.
 
-## 3. Responsif: satu halaman untuk laptop dan HP
+## 3. JavaScript: mengambil data API
 
-`<meta name="viewport" ...>` membuat lebar layout mengikuti layar perangkat. Media query mengubah aturan CSS menurut lebar **viewport** browser, bukan model HP:
+Buka `static/js/script.js`. Alurnya:
 
-```css
-@media (max-width: 760px) {
-  .metrics-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .history-table-wrap { display: none; }
-  .history-cards { display: grid; }
-}
+1. `refreshData()` melakukan GET ke `/api/node/latest` dan `/api/node/history`.
+2. Respons divalidasi sebelum dipakai.
+3. `renderDashboard()` mengisi kartu, sedangkan `renderHistory()` mengisi tabel, kartu mobile, dan grafik.
+4. Polling mengulang setiap 10 detik. Tombol “Refresh tampilan” menjalankan pembacaan yang sama.
+
+```js
+document.getElementById("quota").textContent = value;
 ```
 
-`repeat(2, ...)` membentuk dua kolom dengan lebar sama. Tabel desktop disembunyikan dan kartu riwayat ditampilkan. Keduanya berasal dari array data yang sama; tidak ada API atau database khusus HP.
+`textContent` menampilkan data sebagai teks. Jangan menggantinya dengan HTML mentah dari API. Refresh tidak melakukan POST, tidak menulis database, dan tidak mengirim AT Command/USSD.
 
-Breakpoint proyek:
+Aturan yang harus dipertahankan:
 
-| Lebar viewport | Perubahan |
-| --- | --- |
-| Di atas 1000 px | Kuota dan empat kartu pendukung berdampingan |
-| 761–1000 px | Kuota di atas, empat kartu pendukung di bawah |
-| Sampai 760 px | Kartu pendukung dua kolom; riwayat menjadi kartu |
-| Sampai 440 px | Tombol refresh selebar area konten; informasi perangkat tersusun ulang |
+- `quota: null` berarti belum diketahui; `quota: 0` tetap ditampilkan sebagai `0.0 GB`.
+- Heartbeat dan hasil cek kuota adalah dua informasi berbeda.
+- Cek gagal mempertahankan kuota dan waktu sukses terakhir.
+- Timestamp API tetap UTC; browser memformatnya ke WIB.
+- Ketika pengambilan data gagal, data lama tetap terlihat dengan pesan kegagalan. Waktu pembaruan tidak dipalsukan.
 
-**Latihan:** buka Developer Tools browser (`F12`), aktifkan tampilan perangkat, lalu coba 320, 390, 768, dan 1440 px. Pastikan halaman tidak perlu digeser ke samping, tombol mudah disentuh, dan kalimat “Belum diketahui” tetap terbaca. Pada desktop, tabel boleh bergeser di dalam panelnya sendiri.
+`initSidebar()` di bagian akhir mengurus drawer, fokus keyboard, Escape, backdrop, serta penutupan setelah memilih menu. Tanpa JavaScript, navigasi tampil sebagai tautan biasa.
 
-Emulasi ukuran HP pada laptop berbeda dari akses memakai HP sungguhan. Alamat `127.0.0.1` selalu menunjuk perangkat yang membukanya: di HP, alamat itu menunjuk HP, bukan laptop. Server saat ini hanya untuk akses lokal laptop. Akses HP lewat Wi-Fi memerlukan pengaturan jaringan tersendiri; perubahan desain responsif tidak otomatis membuka akses jaringan.
+**Latihan:** hentikan simulator setelah data terlihat, lalu klik Refresh. Pastikan pesan gagal muncul dan nilai sebelumnya tetap ada.
 
-## 4. JavaScript: menghubungkan data dan tampilan
+## 4. Flask dan SQLite: kontrak tetap
 
-Cari `refreshData()` dan `renderDashboard()` di `static/js/script.js`.
+`app.py`, autentikasi pengirim, endpoint, serta skema database tidak diubah oleh integrasi desain. Browser membaca data lewat API; browser tidak membuka SQLite secara langsung.
 
-Alur saat halaman dibuka atau tombol refresh ditekan:
-
-1. `fetch()` meminta JSON dari `/api/node/latest` dan `/api/node/history`.
-2. `validateNodeData()` memeriksa bentuk data.
-3. `renderDashboard(data)` mengisi kartu.
-4. `renderHistory(history.readings)` membentuk tabel dan kartu HP.
-5. `setInterval(..., 10000)` meminta pembaruan lagi setiap 10 detik, tanpa menumpuk request yang masih berjalan.
-
-Inti pengisian data:
-
-```javascript
-document.getElementById("quota").textContent = "8.4 GB";
-```
-
-Ini contoh untuk memahami DOM, bukan pembacaan perangkat. Kode aplikasi mengambil nilai dari respons API. `textContent` menampilkan string sebagai teks, sehingga nama operator yang berisi karakter HTML tidak dieksekusi sebagai kode.
-
-`null` berbeda dari `0`: `null` berarti belum diketahui; `0` berarti nilainya diketahui nol. Karena itu jangan menulis `if (!data.quota)` untuk menentukan apakah kuota tersedia. Gunakan `data.quota === null`.
-
-Kartu HP menggunakan `<details>` dan `<summary>` agar bisa dibuka dengan sentuhan maupun keyboard. Riwayat yang tidak berubah tidak dibangun ulang, supaya fokus keyboard dan detail yang terbuka tetap terjaga saat polling.
-
-## 5. Latihan dengan simulator
-
-Dari folder `iot-monitoring`:
+Jalankan dari terminal VS Code pada folder `D:\Ariel 24_TA\QuotaNode_TA\iot-monitoring`:
 
 ```powershell
-.\.venv\Scripts\python.exe -B simulator.py
+# Preview dengan data sintetis dan database sementara terpisah.
+.\.venv\Scripts\python.exe -B simulator.py --scenario demo
 ```
 
-Buka `http://127.0.0.1:5001/`. Jika port sedang dipakai preview yang sudah berjalan, gunakan `--port 5002` dan buka port tersebut. Di terminal simulator, coba perintah satu per satu:
+Buka `http://127.0.0.1:5001/`. Skenario demo mengirim heartbeat, sukses, kuota nol, dan cek gagal. Ketik `heartbeat`, `success`, `zero`, atau `failed`, kemudian klik Refresh. Untuk kondisi kosong, jalankan ulang dengan `--scenario empty`. Simulator tidak mengirim heartbeat otomatis; status dapat menjadi Offline setelah 180 detik. Hentikan dengan `quit` atau Ctrl+C agar database sementara dibersihkan.
 
-1. `heartbeat`: koneksi terhubung, kuota belum diketahui.
-2. `success`: kuota sintetis menjadi 8,4 GB.
-3. `zero`: nilai menjadi 0 GB dan indikator Kritis.
-4. `failed`: cek gagal tetapi nilai nol dan waktu sukses tetap.
-5. Tidak mengirim lebih dari 180 detik: koneksi menjadi Tidak terhubung setelah refresh.
+Untuk membaca database project yang sudah ada:
 
-Klik Refresh data atau tunggu pembaruan otomatis setelah setiap langkah. `quit` menutup simulator. Data simulasi bukan data penelitian.
+```powershell
+.\.venv\Scripts\python.exe -B app.py
+```
 
-## 6. Baru lanjut ke backend
+Buka `http://127.0.0.1:5000/`. Gunakan server simulasi untuk menguji kiriman data. Jangan mengirim data contoh ke database project.
 
-Setelah HTML, CSS, dan JavaScript lebih nyaman, baca fungsi `latest_node()`, `node_history()`, dan `update_node()` di `app.py`. Browser hanya membaca data. Pengirim node melakukan POST dengan token. Menekan Refresh data tidak menjalankan USSD, tidak mengirim heartbeat perangkat, dan tidak menambah riwayat.
+## 5. Pengujian dan pemulihan tampilan
 
-Target belajar tahap ini: bisa menjelaskan hubungan **ID HTML → aturan CSS → pengisian JavaScript → API Flask**, lalu mencoba satu perubahan kecil sendiri.
+```powershell
+.\.venv\Scripts\python.exe -B -m unittest test_app test_simulator
+node --check static/js/script.js
+node --test test_dashboard.cjs
+git diff --check
+```
+
+Backup sebelum integrasi berada di `D:\Ariel 24_TA\QuotaNode_TA_backups\stitch-20261101-124629`. Folder `source` berisi salinan source saat itu dan snapshot SQLite konsisten; `manifest.json` mencatat hash awal. `changes.patch` mencatat perubahan Git yang sudah ada sebelum integrasi.
+
+Untuk memulihkan tampilan, hentikan server, lalu salin kembali tiga file dari `source\iot-monitoring`: `templates\index.html`, `static\css\style.css`, dan `static\js\script.js`. Jalankan server lagi dan reload browser. Pertahankan database aktif agar data baru yang masuk setelah backup tetap tersimpan. Snapshot database dipulihkan hanya jika memang sedang melakukan pemulihan data tersendiri.
+
+Export Stitch asli tetap berada di ZIP semula. Referensi hasil ekstraknya berada di `D:\Ariel 24_TA\stitch_quotanode_reference\20261101-124629`.

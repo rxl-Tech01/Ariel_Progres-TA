@@ -1,6 +1,18 @@
 # QuotaNode — Dashboard Monitoring IoT
 
-Prototype Tugas Akhir monitoring paket data SIM7000. Phase 1 menyediakan Flask, SQLite, API satu node, dan dashboard tanpa data dummy. Integrasi AT Command/USSD masih tanggung jawab pengirim; keberhasilan transport heartbeat bukan keberhasilan cek kuota.
+Prototipe Tugas Akhir monitoring paket data seluler dengan target integrasi A7670E. Phase 1 menyediakan Flask, SQLite, API satu node, dan dashboard. Saat ini hardware belum terhubung ke aplikasi: angka dan status pada dashboard merupakan data dummy atau data uji, bukan hasil pengukuran modem. Integrasi AT Command/USSD masih tanggung jawab pengirim; keberhasilan transport heartbeat bukan keberhasilan cek kuota.
+
+Dashboard memakai `DEMO_MODE=True` sebagai penanda tahap prototipe. Banner, kartu, grafik, dan riwayat diberi label demo; status Online pada data uji tidak ditampilkan sebagai bukti koneksi hardware. Refresh hanya membaca API dan tidak mengirim perintah ke modem. Flag ini tidak membuat data baru atau mengubah database. `SIMULATION` tetap khusus untuk server simulasi dengan database sementara terpisah. Ubah `DEMO_MODE` menjadi `False` hanya setelah integrasi hardware dan sumber pengukuran telah diverifikasi.
+
+## Integrasi desain Stitch — 1 November 2026
+
+Dashboard memakai tema terang dengan sidebar responsif. Layout export Stitch diadaptasi ke Jinja dan CSS lokal; tidak memerlukan Tailwind CDN, Google Fonts, atau build frontend. Empat kartu utama, grafik, riwayat, refresh 10 detik, format WIB, serta penanganan data kosong/error memakai API yang sudah ada. Refresh tampilan hanya membaca data dan tidak mengirim AT Command/USSD.
+
+Panel yang belum memiliki data backend (suhu, tegangan, uptime, log AT, konfigurasi, total kapasitas paket), CSV, dan pagination disembunyikan. Operator berasal dari API, bukan teks by.U yang dipasang tetap. Target modem ditulis A7670E sebagai rencana integrasi. Kontrak endpoint, autentikasi, `app.py`, dan skema SQLite dipertahankan.
+
+Sidebar menetap mulai 1024 px; di bawahnya menjadi drawer dengan Escape, backdrop, dan navigasi keyboard. Grid kartu memakai 1/2/4 kolom pada lebar <640 / 640–1279 / ≥1280 px. Riwayat menjadi kartu di bawah 768 px. Aset UI lokal dan font sistem tetap bekerja tanpa internet.
+
+Panduan bertahap HTML → CSS → JavaScript → Flask, cara menjalankan simulator, serta rollback tampilan tersedia di `BELAJAR.md`. Backup source sebelum integrasi dan snapshot SQLite konsisten: `D:\Ariel 24_TA\QuotaNode_TA_backups\stitch-20261101-124629`. Referensi Stitch terpisah: `D:\Ariel 24_TA\stitch_quotanode_reference\20261101-124629`. Gunakan simulator untuk mencoba skenario data tanpa menulis database project.
 
 ## Teknologi dan struktur
 
@@ -121,7 +133,7 @@ Legacy tidak membuktikan kapan kuota terakhir berhasil dicek atau heartbeat vali
 
 ## Perilaku dashboard
 
-Tema gelap navy dengan aksen cyan. CSS Grid/Flexbox menyusun kartu kuota utama dan empat kartu pendukung. Pada lebar sampai 760 px, riwayat berubah menjadi kartu dengan detail yang dapat dibuka; di desktop, tabel dapat digeser di dalam panel. Semua field observasi tetap tersedia pada kedua tampilan. Polling riwayat yang sama mempertahankan DOM/fokus, dan detail terbuka dipertahankan saat data berubah. Label simulasi tetap terlihat, sedangkan penjelasan panjang ada di “Cara membaca dashboard”. Panduan pemula beserta latihan tersedia di [BELAJAR.md](BELAJAR.md).
+Tema terang mengikuti desain Stitch, dengan sidebar navy dan aksen biru. CSS Grid/Flexbox menyusun empat kartu utama. Pada lebar di bawah 768 px, riwayat berubah menjadi kartu dengan detail yang dapat dibuka; pada layar lebih lebar, tabel dapat digeser di dalam panel. Semua field observasi tetap tersedia pada kedua tampilan. Polling riwayat yang sama mempertahankan DOM/fokus, dan detail terbuka dipertahankan saat data berubah. Label simulasi tetap terlihat, sedangkan penjelasan panjang ada di “Cara membaca dashboard”. Panduan pemula beserta latihan tersedia di [BELAJAR.md](BELAJAR.md).
 
 Data dimuat saat awal, lalu polling setiap 10 detik; tombol refresh manual tetap tersedia. Polling berarti browser membaca API, sedangkan heartbeat berarti perangkat mengirim POST. Polling tidak memperbarui heartbeat. Satu siklus membaca latest lalu history; siklus yang masih berjalan tidak ditumpuk, dengan timeout total 9 detik. Timer tab latar belakang dapat ditunda browser. Timestamp API/database tetap UTC; dashboard memformatnya dalam WIB (`Asia/Jakarta`), termasuk ketika zona waktu komputer berbeda. Umur pembacaan dihitung dari waktu cek sukses terakhir terhadap `server_time`, bukan jam komputer, dan berlaku saat pembaruan layar. Waktu cek tersebut masih waktu penerimaan server, bukan waktu ukur perangkat. Masa aktif tetap teks operator, tidak dipaksa menjadi tanggal. Kosong dan nilai belum diketahui tampil eksplisit, nol tampil `0.0 GB`. Status cek diterjemahkan menjadi Berhasil/Gagal/Belum diketahui; perangkat menjadi Terhubung/Tidak terhubung. Offline dan cek gagal bisa ditampilkan bersamaan. Online tidak menjamin kuota baru. Tidak ada batas usia kuota buatan karena interval cek kuota belum disepakati.
 

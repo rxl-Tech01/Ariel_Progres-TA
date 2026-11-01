@@ -49,8 +49,28 @@ class AppTests(unittest.TestCase):
         for text in ("Dashboard Monitoring", '/static/css/style.css', '/static/js/script.js', 'aria-live="polite"'):
             self.assertIn(text, html)
         self.assertNotIn("{{", html)
-        self.assertNotIn("dummy", html.lower())
+        self.assertIn("DEMO · DATA DUMMY", html)
+        self.assertIn("Hardware belum terhubung", html)
+        self.assertIn('data-demo-mode="true"', html)
+        self.assertIn("Riwayat data dummy", html)
+        self.assertIn("Tidak ada AT Command atau USSD yang dikirim", html)
         self.assertNotIn("test-token-only", html)
+
+    def test_demo_presentation_does_not_change_api_or_database(self):
+        self.assertEqual(self.post(self.initial_data).status_code, 200)
+        original = self.database_path.read_bytes()
+        html = self.client.get("/").get_data(as_text=True)
+        self.assertIn("Hardware belum terhubung", html)
+        self.assertEqual(self.latest()["status"], "Online")
+        self.assertEqual(self.database_path.read_bytes(), original)
+        with patch.dict(app.config, DEMO_MODE=False, SIMULATION=False):
+            html = self.client.get("/").get_data(as_text=True)
+            self.assertIn('data-demo-mode="false"', html)
+            self.assertNotIn("DEMO · DATA DUMMY", html)
+        with patch.dict(app.config, DEMO_MODE=False, SIMULATION=True):
+            html = self.client.get("/").get_data(as_text=True)
+            self.assertIn('data-demo-mode="true"', html)
+            self.assertIn("Hardware belum terhubung", html)
 
     def test_empty_read_only(self):
         data = self.latest()
